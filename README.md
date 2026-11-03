@@ -1,5 +1,9 @@
 # Glass Launcher — Android prototype
 
+[Download GlassLauncher.apk](https://github.com/kevinggvagh-png/flow-launcher-/releases/download/build-3/GlassLauncher.apk)
+
+Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downloaded APK on your Android tablet to install it, then choose Settings > Set as home screen inside Glass Launcher.
+
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
 ## Included
@@ -12,7 +16,7 @@ Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 - Offline; no ads, account, accessibility service, or network permission.
 
 ## Status
-Source prototype, not a compiled or device-tested release. This environment has no Android SDK or Gradle. No APK is included. The glass effect uses translucent gradients, not optical refraction or live wallpaper blur. The background is an original procedural gradient, not the wallpaper visible in the reference screenshot.
+Compiled debug prototype; not yet tested on a physical tablet. The APK is available from the download link above. Debug builds may use different signing keys across runs; a later build may require uninstalling the previous test version, which clears its preferences. The glass effect uses translucent gradients, not optical refraction or live wallpaper blur. The background is an original procedural gradient, not the wallpaper visible in the reference screenshot.
 
 ## Build on a computer
 1. Open this folder in Android Studio with JDK 17 and Android SDK 35.
@@ -21,7 +25,7 @@ Source prototype, not a compiled or device-tested release. This environment has 
 4. The APK is at app/build/outputs/apk/debug/app-debug.apk.
 
 ## Build with GitHub
-Put the contents of this folder at the root of a repository you own. The included Actions workflow builds and lints the app, then provides a GlassLauncher-APK artifact. Download and unzip that artifact to get the APK. This workflow has not been executed here.
+Put the contents of this folder at the root of a repository you own. The included Actions workflow builds and lints the app, then provides a GlassLauncher-APK artifact. Download and unzip that artifact to get the APK. The workflow has successfully built, linted and published build-3. Successful pushes publish a new prerelease APK.
 
 ## Install
 Transfer the APK to your tablet, open it, and allow installation from that source if Android asks. Open Glass Launcher > Settings > Set as home screen. Android asks you to choose the home app. This does not change your assistant. To revert, choose Niagara or the original launcher in Android Settings > Default apps > Home app.
@@ -30,7 +34,7 @@ Transfer the APK to your tablet, open it, and allow installation from that sourc
 This keeps a dim screen awake only while this app is in the foreground. It is not a true hardware always-on display, does not bypass your lock screen, and consumes battery. Tap anywhere or press Back to return. Leaving the app also exits the bedside mode.
 
 ## Device validation still required
-- Compile and lint using the supplied workflow.
+- Compilation and Android lint passed for build-3; physical-device checks below remain outstanding.
 - Launch apps, pin/unpin favorites, restart and verify persistence.
 - Rotate between portrait and landscape; test search with keyboard.
 - Verify default-home switching and recovery to the previous home app.
