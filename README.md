@@ -1,1 +1,44 @@
-# flow-launcher-
+# Glass Launcher — Android prototype
+
+Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
+
+## Included
+- Actual Android home activity and installed-app launching.
+- Two app columns on tablets; one on phones.
+- Translucent gradient panels with glass-like highlights, peach/ice/lavender accent.
+- Search, alphabet filters, saved favorites (hold an app to pin/unpin).
+- Default-home selection through Android's home role.
+- Optional dim bedside clock with moving time text.
+- Offline; no ads, account, accessibility service, or network permission.
+
+## Status
+Source prototype, not a compiled or device-tested release. This environment has no Android SDK or Gradle. No APK is included. The glass effect uses translucent gradients, not optical refraction or live wallpaper blur. The background is an original procedural gradient, not the wallpaper visible in the reference screenshot.
+
+## Build on a computer
+1. Open this folder in Android Studio with JDK 17 and Android SDK 35.
+2. Let Gradle sync. The project uses Android Gradle Plugin 8.7.3 and Gradle 8.9. If asked for a Gradle distribution, select Gradle 8.9. Alternatively install Gradle 8.9 and run: gradle wrapper --gradle-version 8.9
+3. Run: gradle assembleDebug lintDebug (or use Android Studio's Build APK action).
+4. The APK is at app/build/outputs/apk/debug/app-debug.apk.
+
+## Build with GitHub
+Put the contents of this folder at the root of a repository you own. The included Actions workflow builds and lints the app, then provides a GlassLauncher-APK artifact. Download and unzip that artifact to get the APK. This workflow has not been executed here.
+
+## Install
+Transfer the APK to your tablet, open it, and allow installation from that source if Android asks. Open Glass Launcher > Settings > Set as home screen. Android asks you to choose the home app. This does not change your assistant. To revert, choose Niagara or the original launcher in Android Settings > Default apps > Home app.
+
+## Bedside clock
+This keeps a dim screen awake only while this app is in the foreground. It is not a true hardware always-on display, does not bypass your lock screen, and consumes battery. Tap anywhere or press Back to return. Leaving the app also exits the bedside mode.
+
+## Device validation still required
+- Compile and lint using the supplied workflow.
+- Launch apps, pin/unpin favorites, restart and verify persistence.
+- Rotate between portrait and landscape; test search with keyboard.
+- Verify default-home switching and recovery to the previous home app.
+- Verify bedside clock restores brightness on exit, Home, and app switching.
+
+## Scope
+Personal-profile apps only. No widgets, notification badges, work-profile support, custom wallpaper picker, or system lock-screen integration in this first version.
+
+Android API references:
+- https://developer.android.com/reference/android/app/role/RoleManager
+- https://developer.android.com/training/package-visibility/declaring
