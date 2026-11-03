@@ -88,7 +88,7 @@ public class MainActivity extends Activity {
         });
         root.requestApplyInsets();
         LinearLayout header=new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout time=new LinearLayout(this); time.setOrientation(1);
+        LinearLayout time=new LinearLayout(this); time.setOrientation(LinearLayout.VERTICAL);
         clock=text("",64); clock.setTextColor(accent); clock.setTypeface(null,Typeface.BOLD);
         date=text("",16); time.addView(clock); time.addView(date);
         header.addView(time,new LinearLayout.LayoutParams(0,-2,1));
@@ -102,9 +102,9 @@ public class MainActivity extends Activity {
             public void afterTextChanged(Editable e){}
         });
         LinearLayout body=new LinearLayout(this);
-        scroll=new ScrollView(this); rows=new LinearLayout(this); rows.setOrientation(1); scroll.addView(rows);
+        scroll=new ScrollView(this); rows=new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL); scroll.addView(rows);
         body.addView(scroll,new LinearLayout.LayoutParams(0,-1,1));
-        LinearLayout rail=new LinearLayout(this); rail.setOrientation(1);
+        LinearLayout rail=new LinearLayout(this); rail.setOrientation(LinearLayout.VERTICAL);
         for (char c : "★ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray()) {
             final char letter=c; TextView t=text(String.valueOf(c),12); t.setGravity(Gravity.CENTER);
             t.setContentDescription(c=='★'?"Show favorites":"Apps starting with "+c);
@@ -176,7 +176,7 @@ public class MainActivity extends Activity {
     }
     void bedside() {
         night=true; ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
-        LinearLayout screen=new LinearLayout(this);screen.setOrientation(1);screen.setGravity(Gravity.CENTER);screen.setBackgroundColor(Color.BLACK);
+        LinearLayout screen=new LinearLayout(this);screen.setOrientation(LinearLayout.VERTICAL);screen.setGravity(Gravity.CENTER);screen.setBackgroundColor(Color.BLACK);
         clock=text("",80);clock.setTextColor(0xff9ba2ad);date=text("",16);date.setTextColor(0xff747b85);
         screen.addView(clock);screen.addView(date);TextView hint=text("Tap anywhere to return",12);hint.setPadding(0,dp(40),0,0);hint.setTextColor(0xff606770);screen.addView(hint);
         setContentView(screen);screen.setOnClickListener(v->home());
