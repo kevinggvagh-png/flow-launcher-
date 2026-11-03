@@ -26,6 +26,8 @@ public class MainActivity extends Activity {
     EditText search;
     ScrollView scroll;
     boolean allApps = false, night = false;
+    char browsingLetter = 0;
+    AlphabetWave alphabetWave;
     int accent = Color.rgb(255, 190, 177);
     final Runnable tick = new Runnable() {
         public void run() {
@@ -75,7 +77,7 @@ public class MainActivity extends Activity {
         b.setBackground(glass()); b.setOnClickListener(v->action.run()); b.setMinHeight(dp(48)); return b;
     }
     void home() {
-        night=false;
+        night=false; browsingLetter=0;
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         WindowManager.LayoutParams w=getWindow().getAttributes(); w.screenBrightness=-1; getWindow().setAttributes(w);
         getWindow().getDecorView().setSystemUiVisibility(0);
@@ -98,20 +100,16 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,dp(52)); sp.setMargins(0,dp(20),0,dp(12)); page.addView(search,sp);
         search.addTextChangedListener(new TextWatcher(){
             public void beforeTextChanged(CharSequence s,int st,int count,int after){}
-            public void onTextChanged(CharSequence s,int st,int before,int count){renderApps();}
+            public void onTextChanged(CharSequence s,int st,int before,int count){browsingLetter=0;renderApps();}
             public void afterTextChanged(Editable e){}
         });
-        LinearLayout body=new LinearLayout(this);
+        FrameLayout body=new FrameLayout(this);
         scroll=new ScrollView(this); rows=new LinearLayout(this); rows.setOrientation(LinearLayout.VERTICAL); scroll.addView(rows);
-        body.addView(scroll,new LinearLayout.LayoutParams(0,-1,1));
-        LinearLayout rail=new LinearLayout(this); rail.setOrientation(LinearLayout.VERTICAL);
-        for (char c : "★ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray()) {
-            final char letter=c; TextView t=text(String.valueOf(c),12); t.setGravity(Gravity.CENTER);
-            t.setContentDescription(c=='★'?"Show favorites":"Apps starting with "+c);
-            rail.addView(t,new LinearLayout.LayoutParams(dp(32),0,1));
-            t.setOnClickListener(v->{ allApps=letter!='★'; search.setText(letter=='★'?"":String.valueOf(letter)); renderApps(); });
-        }
-        body.addView(rail,new LinearLayout.LayoutParams(dp(32),-1)); page.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+        FrameLayout.LayoutParams listParams=new FrameLayout.LayoutParams(-1,-1);
+        listParams.rightMargin=dp(48); body.addView(scroll,listParams);
+        alphabetWave=new AlphabetWave(this);
+        body.addView(alphabetWave,new FrameLayout.LayoutParams(-1,-1));
+        page.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout footer=new LinearLayout(this); footer.setGravity(Gravity.CENTER);
         mode=button("All apps",()->{allApps=!allApps;search.setText("");renderApps();});
         footer.addView(mode,new LinearLayout.LayoutParams(0,-2,1));
@@ -125,7 +123,7 @@ public class MainActivity extends Activity {
         ArrayList<ResolveInfo> filtered=new ArrayList<>();
         for (ResolveInfo a:apps) {
             String name=label(a).toLowerCase(Locale.ROOT);
-            boolean matches=q.length()==1?name.startsWith(q):name.contains(q);
+            boolean matches=browsingLetter!=0?appLetter(a)==browsingLetter:name.contains(q);
             if (matches && (!q.isEmpty()||allApps||favorites.contains(key(a)))) filtered.add(a);
         }
         int columns=getResources().getConfiguration().screenWidthDp>=600?2:1;
@@ -149,6 +147,117 @@ public class MainActivity extends Activity {
         if(filtered.isEmpty()) rows.addView(text(q.isEmpty()?"No favorites yet. Open All apps and hold an app to pin it.":"No matching apps",18));
         if(mode!=null)mode.setText(allApps?"Favorites":"All apps");
         scroll.scrollTo(0,0);
+    }
+    char appLetter(ResolveInfo a) {
+        String name=label(a).trim().toUpperCase(Locale.ROOT);
+        char first=name.isEmpty()?'#':name.charAt(0);
+        return first>='A'&&first<='Z'?first:'#';
+    }
+    void chooseLetter(char letter) {
+        if(search.length()>0) search.setText("");
+        allApps=letter!='★'; browsingLetter=letter=='★'?0:letter;
+        ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
+        page.requestFocus(); renderApps();
+    }
+    void finishLetter(char letter) {
+        if(letter=='★') { chooseLetter(letter); return; }
+        browsingLetter=0; allApps=true; renderApps();
+        int first=-1;
+        for(int i=0;i<apps.size();i++) if(appLetter(apps.get(i))==letter){first=i;break;}
+        final int row=first/(getResources().getConfiguration().screenWidthDp>=600?2:1);
+        if(first>=0) scroll.post(()->{
+            if(!night && row<rows.getChildCount()) scroll.scrollTo(0,rows.getChildAt(row).getTop());
+        });
+    }
+    /** A continuous edge gesture; lifting never launches an app. */
+    class AlphabetWave extends View {
+        final String letters="★ABCDEFGHIJKLMNOPQRSTUVWXYZ#";
+        final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        int selected=-1;
+        boolean dragging=false;
+        float touchY, pull;
+        AlphabetWave(Context context) {
+            super(context); setFocusable(true);
+            setContentDescription("Alphabet navigation. Drag up or down along the right edge. Star shows favorites.");
+        }
+        float step(){return Math.max(1,(getHeight()-dp(24))/(float)letters.length());}
+        int index(float y){return Math.max(0,Math.min(letters.length()-1,(int)((y-dp(12))/step())));}
+        void select(float x,float y) {
+            touchY=Math.max(dp(12),Math.min(getHeight()-dp(12),y));
+            pull=Math.max(dp(54),Math.min(dp(130),getWidth()-x));
+            int next=index(touchY);
+            if(next!=selected){
+                selected=next; chooseLetter(letters.charAt(next));
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                setContentDescription(letters.charAt(next)=='★'?"Favorites":"Apps starting with "+letters.charAt(next));
+            }
+            invalidate();
+        }
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            switch(event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    if(event.getX()<getWidth()-dp(48))return false;
+                    dragging=true;selected=-1;getParent().requestDisallowInterceptTouchEvent(true);
+                    select(event.getX(),event.getY());return true;
+                case MotionEvent.ACTION_MOVE:
+                    if(!dragging)return false;
+                    select(event.getX(),event.getY());return true;
+                case MotionEvent.ACTION_UP:
+                    if(!dragging)return false;
+                    dragging=false;getParent().requestDisallowInterceptTouchEvent(false);
+                    if(selected>=0)finishLetter(letters.charAt(selected));
+                    performClick();invalidate();return true;
+                case MotionEvent.ACTION_CANCEL:
+                    if(!dragging)return false;
+                    dragging=false;getParent().requestDisallowInterceptTouchEvent(false);
+                    if(selected>=0)finishLetter(letters.charAt(selected));
+                    invalidate();return true;
+                default:return dragging;
+            }
+        }
+        @Override public boolean performClick(){super.performClick();return true;}
+        @Override public boolean onKeyDown(int code,KeyEvent event){
+            if(code==KeyEvent.KEYCODE_DPAD_DOWN||code==KeyEvent.KEYCODE_DPAD_UP){
+                selected=Math.max(0,Math.min(letters.length()-1,selected+(code==KeyEvent.KEYCODE_DPAD_DOWN?1:-1)));
+                chooseLetter(letters.charAt(selected));invalidate();return true;
+            }
+            return super.onKeyDown(code,event);
+        }
+        @Override public void onInitializeAccessibilityNodeInfo(android.view.accessibility.AccessibilityNodeInfo info){
+            super.onInitializeAccessibilityNodeInfo(info);info.setScrollable(true);
+            info.addAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+            info.addAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+        }
+        @Override public boolean performAccessibilityAction(int action,Bundle args){
+            if(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD||action==android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD){
+                selected=Math.max(0,Math.min(letters.length()-1,selected+(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD?1:-1)));
+                chooseLetter(letters.charAt(selected));announceForAccessibility(getContentDescription());invalidate();return true;
+            }
+            return super.performAccessibilityAction(action,args);
+        }
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);
+            float edge=getWidth()-dp(22);
+            if(dragging){paint.setColor(0x20000000);canvas.drawRect(0,0,getWidth(),getHeight(),paint);}
+            paint.setTextAlign(Paint.Align.CENTER);paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
+            for(int i=0;i<letters.length();i++){
+                float y=dp(12)+step()*(i+.5f);
+                float distance=(y-touchY)/dp(96);
+                float wave=dragging?(float)Math.exp(-distance*distance)*pull:0;
+                paint.setColor(i==selected?accent:0xddffffff);
+                paint.setTextSize(Math.min(dp(12),step()*.85f));
+                canvas.drawText(String.valueOf(letters.charAt(i)),edge-wave,y-(paint.ascent()+paint.descent())/2,paint);
+            }
+            if(dragging&&selected>=0){
+                float x=Math.max(dp(30),edge-pull-dp(36));
+                float y=Math.max(dp(30),Math.min(getHeight()-dp(30),touchY));
+                paint.setShader(new LinearGradient(x-dp(26),y-dp(26),x+dp(26),y+dp(26),new int[]{0xaaffffff,0x446f9fbb},null,Shader.TileMode.CLAMP));
+                canvas.drawCircle(x,y,dp(26),paint);paint.setShader(null);
+                paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1));paint.setColor(0xbbffffff);canvas.drawCircle(x,y,dp(26),paint);paint.setStyle(Paint.Style.FILL);
+                paint.setTextSize(dp(26));paint.setColor(Color.WHITE);
+                canvas.drawText(String.valueOf(letters.charAt(selected)),x,y-(paint.ascent()+paint.descent())/2,paint);
+            }
+        }
     }
     void launch(ResolveInfo a) {
         try {
