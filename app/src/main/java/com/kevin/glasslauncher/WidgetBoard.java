@@ -3,6 +3,7 @@ package com.kevin.glasslauncher;
 import android.app.*;
 import android.appwidget.*;
 import android.content.*;
+import android.content.pm.LauncherApps;
 import android.os.Bundle;
 import android.view.*;
 import android.widget.*;
@@ -12,13 +13,14 @@ import org.json.*;
 
 /** Owns widget IDs, setup transactions and saved home-screen placement. */
 final class WidgetBoard {
-    static final int BIND=701, CONFIGURE=702, HOST=4101;
+    static final int BIND=701, CONFIGURE=702, HOST=4101, RECONFIGURE=703;
     final MainActivity activity;
     final AppWidgetManager manager;
     final AppWidgetHost host;
     final SharedPreferences prefs;
     final ArrayList<Item> items=new ArrayList<>();
     int pending;
+    LauncherApps.PinItemRequest pinRequest;
     static class Item {
         int id,width,height;
         Item(int id,int width,int height){this.id=id;this.width=width;this.height=height;}
@@ -35,6 +37,26 @@ final class WidgetBoard {
             if(!keep)host.deleteAppWidgetId(id);
         }
     }
+    void restore(Bundle state){
+        if(state!=null)pinRequest=state.getParcelable("widgetPinRequest");
+        if(pinRequest!=null&&pending==-1)confirmPin();
+    }
+    void saveState(Bundle state){state.putParcelable("widgetPinRequest",pinRequest);}
+    void pinIntent(Intent intent){
+        if(!LauncherApps.ACTION_CONFIRM_PIN_APPWIDGET.equals(intent.getAction()))return;
+        LauncherApps launcher=activity.getSystemService(LauncherApps.class);
+        LauncherApps.PinItemRequest request=launcher.getPinItemRequest(intent);
+        if(request==null||!request.isValid()||request.getRequestType()!=LauncherApps.PinItemRequest.REQUEST_TYPE_APPWIDGET){message("This widget request expired. Add it again from its app.");return;}
+        if(pending!=-1)cancel();
+        pinRequest=request;confirmPin();
+    }
+    void confirmPin(){
+        AppWidgetProviderInfo info=pinRequest.getAppWidgetProviderInfo(activity);
+        if(info==null){pinRequest=null;return;}
+        activity.wheel("Add "+info.loadLabel(activity.getPackageManager())+"?",new String[]{"Add to home screen","Cancel"},null,n->{
+            if(n==0&&pinRequest!=null&&pinRequest.isValid())bind(info);else pinRequest=null;
+        });
+    }
     void start(){host.startListening();}
     void stop(){host.stopListening();}
     void save(){
@@ -43,10 +65,11 @@ final class WidgetBoard {
         prefs.edit().putString("widgets",array.toString()).apply();
     }
     void pending(int id){pending=id;prefs.edit().putInt("pendingWidget",id).apply();}
-    void cancel(){if(pending!=-1)host.deleteAppWidgetId(pending);pending(-1);}
+    void cancel(){if(pending!=-1)host.deleteAppWidgetId(pending);pending(-1);pinRequest=null;}
     void message(String text){Toast.makeText(activity,text,Toast.LENGTH_LONG).show();}
     void pick(){
         if(pending!=-1)cancel();
+        pinRequest=null;
         ArrayList<AppWidgetProviderInfo> providers=new ArrayList<>(manager.getInstalledProviders());
         providers.removeIf(p->(p.widgetCategory&AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN)==0);
         providers.sort((a,b)->a.loadLabel(activity.getPackageManager()).compareToIgnoreCase(b.loadLabel(activity.getPackageManager())));
@@ -69,21 +92,32 @@ final class WidgetBoard {
         pending(host.allocateAppWidgetId());
         Bundle options=new Bundle();options.putInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN);
         try{
-            if(manager.bindAppWidgetIdIfAllowed(pending,info.provider,options))configure();
+            if(manager.bindAppWidgetIdIfAllowed(pending,info.getProfile(),info.provider,options))configure();
             else activity.startActivityForResult(new Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,pending)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,info.provider)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE,info.getProfile())
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS,options),BIND);
         }catch(RuntimeException error){cancel();message("This widget could not be added. Try another widget.");}
     }
     void configure(){
         AppWidgetProviderInfo info=manager.getAppWidgetInfo(pending);
         if(info==null){cancel();message("Widget permission was not granted.");return;}
-        if(info.configure==null){finish();return;}
+        if(pinRequest!=null){
+            try{
+                Bundle accepted=new Bundle();accepted.putInt(AppWidgetManager.EXTRA_APPWIDGET_ID,pending);
+                if(!pinRequest.isValid()||!pinRequest.accept(accepted)){cancel();message("Widget request expired. Please add it again.");return;}
+                // The requesting app receives the ID and applies its selected design.
+                pinRequest=null;finish();
+            }catch(RuntimeException error){cancel();message("Could not accept this widget. Please try again.");}
+            return;
+        }
+        if(info.configure==null || (android.os.Build.VERSION.SDK_INT>=31 && (info.widgetFeatures&AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL)!=0 && (info.widgetFeatures&AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE)!=0)){finish();return;}
         try{host.startAppWidgetConfigureActivityForResult(activity,pending,0,CONFIGURE,null);}
         catch(RuntimeException error){cancel();message("The widget's setup screen could not open.");}
     }
     void result(int request,int result){
+        if(request==RECONFIGURE){activity.renderApps();return;}
         if(request!=BIND&&request!=CONFIGURE)return;
         if(pending==-1)return;
         if(result!=Activity.RESULT_OK){cancel();return;}
@@ -110,9 +144,15 @@ final class WidgetBoard {
         save();activity.renderApps();
     }
     void options(Item item){
-        activity.wheel("Widget controls",new String[]{"Move up","Move down","Wider","Narrower","Taller","Shorter","Remove widget"},null,n->{
+        activity.wheel("Widget controls",new String[]{"Move up","Move down","Wider","Narrower","Taller","Shorter","Remove widget","Widget settings"},null,n->{
             int index=items.indexOf(item);if(index<0)return;
-            if(n<2){int next=index+(n==0?-1:1);if(next>=0&&next<items.size()){Collections.swap(items,index,next);save();activity.renderApps();}}
+            if(n==7){
+                AppWidgetProviderInfo info=manager.getAppWidgetInfo(item.id);
+                if(info==null||info.configure==null){message("Tap the widget itself or open its app to edit its design.");return;}
+                try{host.startAppWidgetConfigureActivityForResult(activity,item.id,0,RECONFIGURE,null);}
+                catch(RuntimeException error){message("Open the widget app to edit this design.");}
+            }
+            else if(n<2){int next=index+(n==0?-1:1);if(next>=0&&next<items.size()){Collections.swap(items,index,next);save();activity.renderApps();}}
             else if(n==6){host.deleteAppWidgetId(item.id);items.remove(item);save();activity.renderApps();}
             else resize(item,n==2?64:n==3?-64:0,n==4?64:n==5?-64:0);
         });

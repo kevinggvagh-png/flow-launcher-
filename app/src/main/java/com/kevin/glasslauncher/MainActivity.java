@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
         tintedGlass=getPreferences(0).getBoolean("tintedGlass",false);
         widgetBoard=new WidgetBoard(this);
         loadApps(); home();
+        widgetBoard.restore(state);
+        if(state==null)widgetBoard.pinIntent(getIntent());
     }
     int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     String key(ResolveInfo a) { return a.activityInfo.packageName + "/" + a.activityInfo.name; }
@@ -510,6 +512,7 @@ public class MainActivity extends Activity {
         }
         @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus)invalidate();}
     }
+    @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);widgetBoard.saveState(state);}
     @Override protected void onStart(){super.onStart();if(widgetBoard!=null)widgetBoard.start();}
     @Override protected void onStop(){if(widgetBoard!=null)widgetBoard.stop();super.onStop();}
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(widgetBoard!=null)widgetBoard.result(request,result);}
@@ -525,7 +528,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume(){super.onResume();accent=getPreferences(0).getInt("accent",0xffffbeb1);if(!night){loadApps();renderApps();if(clock!=null)clock.setTextColor(accent);}handler.removeCallbacks(tick);handler.post(tick);}
     @Override protected void onPause(){super.onPause();handler.removeCallbacks(tick);if(night)home();}
-    @Override protected void onNewIntent(Intent i){super.onNewIntent(i);allApps=false;home();}
+    @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);allApps=false;home();widgetBoard.pinIntent(i);}
     @Override public void onBackPressed(){allApps=false;home();}
     static class Aurora extends View {
         Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);

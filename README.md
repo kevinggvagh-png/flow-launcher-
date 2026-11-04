@@ -6,6 +6,12 @@ Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downlo
 
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
+## Version 0.5 changes
+- Supports widget apps’ Add to home screen pin requests when Glass Launcher is the default home app, including the callback used to apply custom designs.
+- Edit > Widget settings reopens provider configuration without deleting the widget on cancellation.
+- Optional configuration is respected, and widget receiver packages are visible to the picker.
+- Glass Widgets compatibility still needs testing on a device with that app installed.
+
 ## Version 0.4 changes
 - Keeps the tablet’s system wallpaper by default, including live wallpapers. Settings > Wallpaper offers the system picker and built-in Aurora alternative.
 - Android widgets: searchable picker, permission/setup flow, saved order and size, move up/down, resize and remove via Edit. Widgets appear above favourites.
