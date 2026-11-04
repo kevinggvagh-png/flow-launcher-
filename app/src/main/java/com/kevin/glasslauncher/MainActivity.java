@@ -2,6 +2,7 @@ package com.kevin.glasslauncher;
 
 import android.app.*;
 import android.app.role.RoleManager;
+import android.appwidget.*;
 import android.content.*;
 import android.content.pm.*;
 import android.graphics.*;
@@ -30,6 +31,7 @@ public class MainActivity extends Activity {
     boolean allApps = false, night = false, tintedGlass = false;
     char browsingLetter = 0;
     AlphabetWave alphabetWave;
+    WidgetBoard widgetBoard;
     int accent = Color.rgb(255, 190, 177);
     final Runnable tick = new Runnable() {
         public void run() {
@@ -48,6 +50,7 @@ public class MainActivity extends Activity {
         favorites.addAll(getPreferences(0).getStringSet("favorites", Collections.emptySet()));
         accent=getPreferences(0).getInt("accent",0xffffbeb1);
         tintedGlass=getPreferences(0).getBoolean("tintedGlass",false);
+        widgetBoard=new WidgetBoard(this);
         loadApps(); home();
     }
     int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
@@ -136,13 +139,14 @@ public class MainActivity extends Activity {
         LinearLayout footer=new LinearLayout(this); footer.setGravity(Gravity.CENTER);
         mode=button("All apps",()->{allApps=!allApps;search.setText("");renderApps();});
         footer.addView(mode,new LinearLayout.LayoutParams(0,-2,1));
-        footer.addView(button("Bedside clock",this::bedside),new LinearLayout.LayoutParams(0,-2,1));
+        footer.addView(button("Assistant",this::assistantHud),new LinearLayout.LayoutParams(0,-2,1));
         page.addView(footer); page.setFocusableInTouchMode(true); page.requestFocus(); renderApps();
     }
     void renderApps() {
         if (rows==null || night) return;
         rows.removeAllViews();
         String q=search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        if(!allApps && q.isEmpty() && browsingLetter==0) widgetBoard.render(rows);
         ArrayList<ResolveInfo> filtered=new ArrayList<>();
         for (ResolveInfo a:apps) {
             String name=label(a).toLowerCase(Locale.ROOT);
@@ -179,7 +183,7 @@ public class MainActivity extends Activity {
             }
             rows.addView(line);
         }
-        if(filtered.isEmpty()) rows.addView(text(browsingLetter!=0?"No apps under "+browsingLetter:q.isEmpty()?"No favorites yet. Open All apps and hold an app to pin it.":"No matching apps",18));
+        if(filtered.isEmpty()) rows.addView(text(browsingLetter!=0?"No apps under "+browsingLetter:q.isEmpty()?"Open All apps and hold an app to pin it.":"No matching apps",18));
         if(mode!=null)mode.setText(allApps?"Favorites":"All apps");
         scroll.scrollTo(0,0);
     }
@@ -435,16 +439,67 @@ public class MainActivity extends Activity {
         wheel("Accent colour",names,colors,n->{accent=colors[n];getPreferences(0).edit().putInt("accent",accent).apply();home();});
     }
     void settings() {
-        wheel("Glass Launcher",new String[]{"Set as home screen","Accent colour","Tinted glass: "+(tintedGlass?"On":"Off"),"Bedside clock"},null,which->{
+        wheel("Glass Launcher",new String[]{"Set as home screen","Accent colour","Tinted glass: "+(tintedGlass?"On":"Off"),"Bedside clock","Add widgets"},null,which->{
             if(which==0){
                 RoleManager rm=getSystemService(RoleManager.class);
                 if(rm!=null&&rm.isRoleAvailable(RoleManager.ROLE_HOME)&&!rm.isRoleHeld(RoleManager.ROLE_HOME))startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME),10);
                 else startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
             }else if(which==1)accents();
             else if(which==2){tintedGlass=!tintedGlass;getPreferences(0).edit().putBoolean("tintedGlass",tintedGlass).apply();home();}
+            else if(which==4)widgetBoard.pick();
             else wheel("Dim clock · keeps screen awake",new String[]{"Open bedside clock","Return home"},null,n->{if(n==0)bedside();});
         });
     }
+    void assistantHud() {
+        Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        FrameLayout screen=new FrameLayout(this);screen.setBackgroundColor(0xff04090f);
+        AssistantCore core=new AssistantCore(this);screen.addView(core,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout header=new LinearLayout(this);header.setPadding(dp(20),dp(16),dp(20),0);
+        header.addView(button("‹ Home",dialog::dismiss));
+        TextView title=text("  A S S I S T A N T",18);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        header.addView(button("Default assistant",()->startActivity(new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))));
+        screen.addView(header,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+        LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.VERTICAL);footer.setPadding(dp(24),0,dp(24),dp(24));
+        TextView hint=text("Tap the core to open your default assistant",14);hint.setGravity(Gravity.CENTER);footer.addView(hint);
+        Runnable launch=()->{
+            try {
+                if(showAssist(new Bundle())){dialog.dismiss();}
+                else Toast.makeText(this,"Assistant could not open. Check Default assistant settings.",Toast.LENGTH_LONG).show();
+            }catch(RuntimeException error){Toast.makeText(this,"Choose an available assistant in Default assistant settings.",Toast.LENGTH_LONG).show();}
+        };
+        core.setOnClickListener(v->launch.run());core.setContentDescription("Activate default digital assistant");
+        footer.addView(button("Activate assistant  ›",launch));screen.addView(footer,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
+        dialog.setContentView(screen);dialog.show();Window window=dialog.getWindow();
+        if(window!=null){window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.setLayout(-1,-1);}
+    }
+    class AssistantCore extends View {
+        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final long start=SystemClock.uptimeMillis();
+        AssistantCore(Context c){super(c);setClickable(true);setFocusable(true);}
+        @Override protected void onDraw(Canvas c){
+            float w=getWidth(),h=getHeight(),cx=w/2,cy=h*.64f;
+            float r=Math.min(dp(85),Math.min(w*.18f,h*.17f));
+            float phase=(SystemClock.uptimeMillis()-start)/40f;
+            p.setColor(0x335c9ea8);p.setStrokeWidth(dp(1));
+            for(int i=0;i<70;i++){float x=((i*173+23)%997)/997f*w,y=((i*113+51)%991)/991f*h;c.drawCircle(x,y,dp(i%3==0?1:.5f),p);}
+            p.setColor(0x1556a7b7);for(int i=0;i<8;i++)c.drawLine(0,h*.77f+i*dp(20),w,h*.77f+i*dp(20),p);
+            p.setShader(new RadialGradient(cx,cy,r*1.6f,new int[]{alpha(accent,100),0x0046bbff},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r*1.6f,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);
+            for(int i=0;i<4;i++){
+                float radius=r*(.55f+i*.18f);p.setColor(alpha(accent,100+i*35));p.setStrokeWidth(dp(i==1?2:1));
+                RectF bounds=new RectF(cx-radius,cy-radius,cx+radius,cy+radius);
+                c.drawArc(bounds,(i%2==0?phase:-phase)+i*70,230,false,p);
+            }
+            for(int i=0;i<60;i++){double angle=i*Math.PI/30;float outer=r*1.17f,inner=r*(i%5==0?1.08f:1.13f);p.setColor(0x886ccce7);c.drawLine(cx+(float)Math.cos(angle)*inner,cy+(float)Math.sin(angle)*inner,cx+(float)Math.cos(angle)*outer,cy+(float)Math.sin(angle)*outer,p);}
+            p.setStyle(Paint.Style.FILL);float glow=r*(.13f+.025f*(float)Math.sin(phase/15));
+            p.setShader(new RadialGradient(cx,cy,glow*3,new int[]{Color.WHITE,accent,0x003bc4ff},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,glow*3,p);p.setShader(null);
+            p.setTextAlign(Paint.Align.CENTER);p.setColor(0xff9bcbd8);p.setTextSize(dp(11));c.drawText("T A P  T H E  C O R E",cx,cy+r*1.5f,p);
+            if(isShown()&&hasWindowFocus())postInvalidateDelayed(33);
+        }
+        @Override public void onWindowFocusChanged(boolean focus){super.onWindowFocusChanged(focus);if(focus)invalidate();}
+    }
+    @Override protected void onStart(){super.onStart();if(widgetBoard!=null)widgetBoard.start();}
+    @Override protected void onStop(){if(widgetBoard!=null)widgetBoard.stop();super.onStop();}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(widgetBoard!=null)widgetBoard.result(request,result);}
     void bedside() {
         night=true; ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
         LinearLayout screen=new LinearLayout(this);screen.setOrientation(LinearLayout.VERTICAL);screen.setGravity(Gravity.CENTER);screen.setBackgroundColor(Color.BLACK);

@@ -6,6 +6,11 @@ Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downlo
 
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
+## Version 0.4 changes
+- Android widgets: searchable picker, permission/setup flow, saved order and size, move up/down, resize and remove via Edit. Widgets appear above favourites.
+- Reference-inspired animated assistant HUD; tap the core or Activate assistant to invoke Android’s selected assistant. The assistant owns its own voice interface. No simulated listening or replies.
+- Widget provider artwork remains controlled by its app.
+
 ## Version 0.3 changes
 - Curved alphabet browsing from either edge.
 - Eight saved accent colours and a saved Tinted Glass switch in Settings.
@@ -48,7 +53,7 @@ This keeps a dim screen awake only while this app is in the foreground. It is no
 - Verify bedside clock restores brightness on exit, Home, and app switching.
 
 ## Scope
-Personal-profile apps only. No widgets, notification badges, work-profile support, custom wallpaper picker, or system lock-screen integration in this first version.
+Personal-profile apps only. No notification badges, work-profile support, custom wallpaper picker, or system lock-screen integration in this first version.
 
 Android API references:
 - https://developer.android.com/reference/android/app/role/RoleManager
