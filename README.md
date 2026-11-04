@@ -6,11 +6,18 @@ Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downlo
 
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
+## Version 0.2 changes
+- Curved alphabet browsing from either edge.
+- Eight saved accent colours and a saved Tinted Glass switch in Settings.
+- Stronger translucent glass gradients, double highlights and circular app icon masks.
+- Circular swipeable option dials for settings, accent selection and long-press app actions; Previous/Next/Choose buttons also available.
+- Glass is a stylized translucent effect, not live background blur or optical refraction.
+
 ## Included
 - Actual Android home activity and installed-app launching.
 - Two app columns on tablets; one on phones.
 - Translucent gradient panels with glass-like highlights, peach/ice/lavender accent.
-- Search, alphabet filters, saved favorites (hold an app to pin/unpin).
+- Search, alphabet filters, saved favorites (hold an app and choose Pin/Unpin).
 - Default-home selection through Android's home role.
 - Optional dim bedside clock with moving time text.
 - Offline; no ads, account, accessibility service, or network permission.
