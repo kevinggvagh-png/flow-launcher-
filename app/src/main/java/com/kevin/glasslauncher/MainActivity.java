@@ -107,7 +107,15 @@ public class MainActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         WindowManager.LayoutParams w=getWindow().getAttributes(); w.screenBrightness=-1; getWindow().setAttributes(w);
         getWindow().getDecorView().setSystemUiVisibility(0);
-        root=new FrameLayout(this); root.addView(new Aurora(this));
+        root=new FrameLayout(this);
+        if(getPreferences(0).getBoolean("systemWallpaper",true)){
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER);
+            getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            root.setBackgroundColor(0x22000000);
+        }else{
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER);
+            root.addView(new Aurora(this));
+        }
         page=new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL); page.setPadding(dp(24),dp(16),dp(24),dp(16));
         root.addView(page,new FrameLayout.LayoutParams(-1,-1)); setContentView(root);
         root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -439,7 +447,7 @@ public class MainActivity extends Activity {
         wheel("Accent colour",names,colors,n->{accent=colors[n];getPreferences(0).edit().putInt("accent",accent).apply();home();});
     }
     void settings() {
-        wheel("Glass Launcher",new String[]{"Set as home screen","Accent colour","Tinted glass: "+(tintedGlass?"On":"Off"),"Bedside clock","Add widgets"},null,which->{
+        wheel("Glass Launcher",new String[]{"Set as home screen","Accent colour","Tinted glass: "+(tintedGlass?"On":"Off"),"Bedside clock","Add widgets","Wallpaper"},null,which->{
             if(which==0){
                 RoleManager rm=getSystemService(RoleManager.class);
                 if(rm!=null&&rm.isRoleAvailable(RoleManager.ROLE_HOME)&&!rm.isRoleHeld(RoleManager.ROLE_HOME))startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME),10);
@@ -447,6 +455,11 @@ public class MainActivity extends Activity {
             }else if(which==1)accents();
             else if(which==2){tintedGlass=!tintedGlass;getPreferences(0).edit().putBoolean("tintedGlass",tintedGlass).apply();home();}
             else if(which==4)widgetBoard.pick();
+            else if(which==5)wheel("Wallpaper",new String[]{"Keep tablet wallpaper","Change tablet wallpaper","Built-in Aurora"},null,n->{
+                getPreferences(0).edit().putBoolean("systemWallpaper",n!=2).apply();home();
+                if(n==1){try{startActivity(Intent.createChooser(new Intent(Intent.ACTION_SET_WALLPAPER),"Choose wallpaper"));}
+                catch(ActivityNotFoundException error){Toast.makeText(this,"Change your wallpaper in Android Settings.",Toast.LENGTH_LONG).show();}}
+            });
             else wheel("Dim clock · keeps screen awake",new String[]{"Open bedside clock","Return home"},null,n->{if(n==0)bedside();});
         });
     }

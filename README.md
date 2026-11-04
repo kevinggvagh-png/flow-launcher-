@@ -7,6 +7,7 @@ Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downlo
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
 ## Version 0.4 changes
+- Keeps the tablet’s system wallpaper by default, including live wallpapers. Settings > Wallpaper offers the system picker and built-in Aurora alternative.
 - Android widgets: searchable picker, permission/setup flow, saved order and size, move up/down, resize and remove via Edit. Widgets appear above favourites.
 - Reference-inspired animated assistant HUD; tap the core or Activate assistant to invoke Android’s selected assistant. The assistant owns its own voice interface. No simulated listening or replies.
 - Widget provider artwork remains controlled by its app.
@@ -28,7 +29,7 @@ Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 - Offline; no ads, account, accessibility service, or network permission.
 
 ## Status
-Compiled debug prototype; not yet tested on a physical tablet. The APK is available from the download link above. Debug builds may use different signing keys across runs; a later build may require uninstalling the previous test version, which clears its preferences. The glass effect uses translucent gradients, not optical refraction or live wallpaper blur. The background is an original procedural gradient, not the wallpaper visible in the reference screenshot.
+Compiled debug prototype; not yet tested on a physical tablet. The APK is available from the download link above. Debug builds may use different signing keys across runs; a later build may require uninstalling the previous test version, which clears its preferences. The glass effect uses translucent gradients, not optical refraction or live wallpaper blur. The background uses your system wallpaper by default; Aurora is an optional procedural gradient.
 
 ## Build on a computer
 1. Open this folder in Android Studio with JDK 17 and Android SDK 35.
@@ -53,7 +54,7 @@ This keeps a dim screen awake only while this app is in the foreground. It is no
 - Verify bedside clock restores brightness on exit, Home, and app switching.
 
 ## Scope
-Personal-profile apps only. No notification badges, work-profile support, custom wallpaper picker, or system lock-screen integration in this first version.
+Personal-profile apps only. No notification badges, work-profile support, in-app wallpaper image editor, or system lock-screen integration in this first version.
 
 Android API references:
 - https://developer.android.com/reference/android/app/role/RoleManager
