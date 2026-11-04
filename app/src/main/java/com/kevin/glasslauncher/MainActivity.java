@@ -312,28 +312,29 @@ public class MainActivity extends Activity {
     interface Choice { void select(int index); }
     void wheel(String title,String[] options,int[] colors,Choice action) {
         Dialog dialog=new Dialog(this);
-        LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(18),dp(20),dp(18),dp(16));panel.setBackground(glass());
-        TextView heading=text(title,22);heading.setGravity(Gravity.CENTER);panel.addView(heading);
-        TextView hint=text("Swipe around the dial · tap an option",13);hint.setGravity(Gravity.CENTER);panel.addView(hint);
-        Dial dial=new Dial(options,colors);panel.addView(dial,new LinearLayout.LayoutParams(-1,dp(280)));
-        TextView selected=text(options[0],20);selected.setGravity(Gravity.CENTER);selected.setTextColor(accent);
-        selected.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);panel.addView(selected);
-        dial.changed=()->selected.setText(options[dial.selected()]);
-        LinearLayout controls=new LinearLayout(this);
-        controls.addView(button("Previous",()->dial.move(-1)),new LinearLayout.LayoutParams(0,-2,1));
-        controls.addView(button("Next",()->dial.move(1)),new LinearLayout.LayoutParams(0,-2,1));panel.addView(controls);
-        panel.addView(button("Choose",()->{int n=dial.selected();dialog.dismiss();action.select(n);}));
-        panel.addView(button("Close",dialog::dismiss));
-        dialog.setContentView(panel);
+        FrameLayout overlay=new FrameLayout(this);overlay.setBackgroundColor(0xee07111b);
+        Dial dial=new Dial(options,colors);dial.menuTitle=title;
+        dial.chosen=()->{int n=dial.selected();dialog.dismiss();action.select(n);};
+        overlay.addView(dial,new FrameLayout.LayoutParams(-1,-1));
+        TextView close=button("Close ×",dialog::dismiss);
+        FrameLayout.LayoutParams closeParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.RIGHT);
+        closeParams.setMargins(dp(16),dp(20),dp(16),0);overlay.addView(close,closeParams);
+        LinearLayout controls=new LinearLayout(this);controls.setGravity(Gravity.CENTER);
+        controls.addView(button("‹ Previous",()->dial.move(-1)),new LinearLayout.LayoutParams(0,-2,1));
+        controls.addView(button("Choose",()->dial.chosen.run()),new LinearLayout.LayoutParams(0,-2,1));
+        controls.addView(button("Next ›",()->dial.move(1)),new LinearLayout.LayoutParams(0,-2,1));
+        FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(Math.min(getResources().getDisplayMetrics().widthPixels-dp(32),dp(480)),-2,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        cp.bottomMargin=dp(20);overlay.addView(controls,cp);
+        dial.changed=()->{dial.setContentDescription(title+": "+options[dial.selected()]+". Use Previous, Next and Choose.");dial.announceForAccessibility(options[dial.selected()]);};
+        dialog.setContentView(overlay);
         Window window=dialog.getWindow();
-        if(window!=null){window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams lp=window.getAttributes();lp.dimAmount=.55f;window.setAttributes(lp);}
+        if(window!=null)window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         dialog.show();
-        if(window!=null)window.setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(430)),WindowManager.LayoutParams.WRAP_CONTENT);
+        if(window!=null)window.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
     }
     class Dial extends View {
         final String[] options;final int[] colors;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        float position=0,lastAngle,downX,downY;boolean moved;Runnable changed;
+        float position=0,lastAngle,downX,downY;boolean moved;Runnable changed,chosen;String menuTitle="Options";
         Dial(String[] values,int[] swatches){super(MainActivity.this);options=values;colors=swatches;setContentDescription("Circular options dial. Use Previous, Next and Choose buttons.");}
         int selected(){return ((Math.round(position)%options.length)+options.length)%options.length;}
         void move(int amount){position=Math.round(position)+amount;notifySelection();}
@@ -350,6 +351,9 @@ public class MainActivity extends Activity {
                 if(old!=selected())notifySelection();else invalidate();return true;
             }
             if(e.getActionMasked()==MotionEvent.ACTION_UP){
+                if(!moved&&Math.hypot(x-getWidth()/2f,y-getHeight()/2f)<faceRadius()*.42f){
+                    performClick();if(chosen!=null)chosen.run();return true;
+                }
                 if(!moved){
                     float tapped=(angle(x,y)+(float)Math.PI/2)*options.length/(2*(float)Math.PI);
                     position=Math.round(position+tapped);
@@ -360,30 +364,71 @@ public class MainActivity extends Activity {
             return true;
         }
         @Override public boolean performClick(){super.performClick();return true;}
+        float faceRadius(){return Math.min(getWidth()*.43f,(getHeight()-dp(140))*.46f);}
+        void centered(Canvas c,String text,float x,float y,float size,int color){
+            p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(color);p.setTextSize(size);p.setTextAlign(Paint.Align.CENTER);
+            c.drawText(text,x,y-(p.ascent()+p.descent())/2,p);
+        }
         @Override protected void onDraw(Canvas c){
-            float cx=getWidth()/2f,cy=getHeight()/2f,r=Math.min(cx-dp(36),cy-dp(34));
-            p.setShader(new RadialGradient(cx-r*.3f,cy-r*.4f,r*1.6f,new int[]{0x66ffffff,alpha(accent,55),0x33102136},null,Shader.TileMode.CLAMP));
-            c.drawCircle(cx,cy,r+dp(25),p);p.setShader(null);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1.5f));p.setColor(0xaaffffff);c.drawCircle(cx,cy,r+dp(25),p);
-            p.setColor(alpha(accent,160));c.drawCircle(cx,cy,r-dp(22),p);p.setStyle(Paint.Style.FILL);
+            float cx=getWidth()/2f,cy=getHeight()/2f,r=faceRadius();
+            if(r<=0)return;
+            // A continuous ribbed silicone strap passes underneath the watch case.
+            float strap=r*.58f;
+            p.setShader(new LinearGradient(cx-strap,0,cx+strap,0,new int[]{0xff101923,alpha(accent,255),0xff15202d},new float[]{0,.48f,1},Shader.TileMode.CLAMP));
+            c.drawRoundRect(new RectF(cx-strap,-dp(40),cx+strap,getHeight()+dp(40)),dp(32),dp(32),p);p.setShader(null);
+            p.setStrokeWidth(dp(2));p.setColor(0x39000000);
+            for(float y=0;y<getHeight();y+=dp(10))c.drawLine(cx-strap+dp(8),y,cx+strap-dp(8),y,p);
+            p.setColor(0xff0b1621);
+            for(float y=cy+r+dp(30);y<getHeight();y+=dp(23))c.drawRoundRect(new RectF(cx-dp(10),y,cx+dp(10),y+dp(8)),dp(4),dp(4),p);
+            // Metal lugs and side buttons give the full watch a physical silhouette.
+            p.setColor(0xff73818d);
+            c.drawRoundRect(new RectF(cx-r*.72f,cy-r*1.12f,cx+r*.72f,cy+r*1.12f),dp(25),dp(25),p);
+            p.setColor(0xffa5b2bb);
+            c.drawRoundRect(new RectF(cx+r*.93f,cy-r*.46f,cx+r*1.12f,cy-r*.13f),dp(7),dp(7),p);
+            c.drawRoundRect(new RectF(cx+r*.93f,cy+r*.13f,cx+r*1.1f,cy+r*.40f),dp(7),dp(7),p);
+            p.setColor(0x99000000);c.drawCircle(cx,cy+dp(10),r*1.08f,p);
+            p.setShader(new LinearGradient(cx-r,cy-r,cx+r,cy+r,new int[]{0xffe1e8ee,0xff4b5969,0xff111c28,0xff9aaaba},null,Shader.TileMode.CLAMP));
+            c.drawCircle(cx,cy,r*1.06f,p);p.setShader(null);
+            p.setColor(0xff101b27);c.drawCircle(cx,cy,r,p);
+            p.setStyle(Paint.Style.STROKE);p.setColor(0xff718090);p.setStrokeWidth(dp(2));c.drawCircle(cx,cy,r*.97f,p);p.setStyle(Paint.Style.FILL);
             for(int i=0;i<60;i++){
-                double a=i*Math.PI/30;float inner=r+dp(i%5==0?15:20);p.setColor(0x66ffffff);p.setStrokeWidth(dp(1));
-                c.drawLine(cx+(float)Math.cos(a)*inner,cy+(float)Math.sin(a)*inner,cx+(float)Math.cos(a)*(r+dp(24)),cy+(float)Math.sin(a)*(r+dp(24)),p);
+                double a=i*Math.PI/30;float inner=r*(i%5==0?.89f:.93f);p.setColor(i%5==0?accent:0xff718090);p.setStrokeWidth(dp(i%5==0?2:1));
+                c.drawLine(cx+(float)Math.cos(a)*inner,cy+(float)Math.sin(a)*inner,cx+(float)Math.cos(a)*r*.96f,cy+(float)Math.sin(a)*r*.96f,p);
             }
-            p.setTextAlign(Paint.Align.CENTER);
+            // Glass face: accent tint, dark backing for labels, and a broad reflection.
+            int tint=tintedGlass?accent:0xff91bacb;
+            p.setShader(new RadialGradient(cx-r*.4f,cy-r*.5f,r*1.6f,new int[]{alpha(tint,180),0xff172b3c,0xff07121e},null,Shader.TileMode.CLAMP));
+            c.drawCircle(cx,cy,r*.87f,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1));p.setColor(0xaaffffff);c.drawCircle(cx,cy,r*.87f,p);p.setStyle(Paint.Style.FILL);
+            c.save();Path clip=new Path();clip.addCircle(cx,cy,r*.86f,Path.Direction.CW);c.clipPath(clip);
+            p.setShader(new LinearGradient(cx-r,cy-r,cx,cy,new int[]{0x66ffffff,0x00ffffff},null,Shader.TileMode.CLAMP));
+            c.drawOval(new RectF(cx-r*1.3f,cy-r*1.1f,cx+r*.8f,cy-r*.2f),p);p.setShader(null);c.restore();
+            float orbit=r*.65f;
             for(int i=0;i<options.length;i++){
                 double a=(i-position)*2*Math.PI/options.length-Math.PI/2;
-                float x=cx+(float)Math.cos(a)*r,y=cy+(float)Math.sin(a)*r;
-                boolean active=i==selected();float size=dp(active?23:18);
-                p.setColor(colors!=null?colors[i]:active?accent:0xff3f6376);c.drawCircle(x,y,size,p);
-                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(active?2:1));p.setColor(active?Color.WHITE:0x77ffffff);c.drawCircle(x,y,size,p);p.setStyle(Paint.Style.FILL);
-                p.setColor(0xff102337);p.setTextSize(dp(active?17:14));p.setTypeface(Typeface.DEFAULT_BOLD);
-                c.drawText(String.valueOf(i+1),x,y-(p.ascent()+p.descent())/2,p);
+                float x=cx+(float)Math.cos(a)*orbit,y=cy+(float)Math.sin(a)*orbit;
+                boolean active=i==selected();float size=r*(active?.135f:.105f);
+                p.setColor(colors!=null?colors[i]:active?accent:0xff37566c);c.drawCircle(x,y,size,p);
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(active?2:1));p.setColor(active?Color.WHITE:0x88ffffff);c.drawCircle(x,y,size,p);p.setStyle(Paint.Style.FILL);
+                p.setTypeface(Typeface.DEFAULT_BOLD);
+                centered(c,String.valueOf(i+1),x,y,Math.min(dp(20),r*.10f),0xff102337);
             }
-            p.setTypeface(Typeface.DEFAULT);p.setColor(Color.WHITE);p.setTextSize(dp(16));
-            c.drawText("ROTATE",cx,cy-dp(4),p);p.setTextSize(dp(12));p.setColor(accent);c.drawText((selected()+1)+" / "+options.length,cx,cy+dp(18),p);
+            p.setTypeface(Typeface.DEFAULT);
+            String heading=menuTitle.length()>28?menuTitle.substring(0,26)+"…":menuTitle;
+            centered(c,heading,cx,cy-r*.32f,Math.min(dp(14),r*.065f),0xffc5d7e4);
+            String[] words=options[selected()].split(" ");String line="";ArrayList<String> lines=new ArrayList<>();
+            p.setTextSize(Math.min(dp(27),r*.14f));
+            for(String word:words){String next=line.isEmpty()?word:line+" "+word;if(p.measureText(next)>r*.94f&&!line.isEmpty()){lines.add(line);line=word;}else line=next;}
+            if(!line.isEmpty())lines.add(line);
+            float lineHeight=Math.min(dp(32),r*.17f);
+            p.setTypeface(Typeface.DEFAULT_BOLD);
+            for(int j=0;j<lines.size();j++)centered(c,lines.get(j),cx,cy+(j-(lines.size()-1)/2f)*lineHeight,Math.min(dp(27),r*.14f),Color.WHITE);
+            p.setTypeface(Typeface.DEFAULT);
+            centered(c,"Tap centre to choose",cx,cy+r*.33f,Math.min(dp(12),r*.06f),accent);
+            centered(c,"SWIPE AROUND THE WATCH",cx,cy+r*1.26f,Math.min(dp(12),r*.06f),0xffd8e6ef);
         }
     }
+
     void accents() {
         String[] names={"Peach","Ice","Lavender","Rose","Mint","Amber","Ocean","Pearl"};
         int[] colors={0xffffbeb1,0xffa6eced,0xffd6baff,0xffff8eb5,0xff8fe0b5,0xffffce70,0xff83bbff,0xffe6edf7};

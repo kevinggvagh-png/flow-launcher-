@@ -1,16 +1,16 @@
 # Glass Launcher — Android prototype
 
-[Download GlassLauncher.apk](https://github.com/kevinggvagh-png/flow-launcher-/releases/download/build-3/GlassLauncher.apk)
+[Download GlassLauncher.apk](https://github.com/kevinggvagh-png/flow-launcher-/releases)
 
 Built and checked by GitHub Actions (`assembleDebug lintDebug`). Open the downloaded APK on your Android tablet to install it, then choose Settings > Set as home screen inside Glass Launcher.
 
 Created for Kevin's OnePlus Pad, based on the supplied Niagara layout.
 
-## Version 0.2 changes
+## Version 0.3 changes
 - Curved alphabet browsing from either edge.
 - Eight saved accent colours and a saved Tinted Glass switch in Settings.
 - Stronger translucent glass gradients, double highlights and circular app icon masks.
-- Circular swipeable option dials for settings, accent selection and long-press app actions; Previous/Next/Choose buttons also available.
+- Full-screen watch menus with visible straps, metal case, bezel and circular swipeable option dials for settings, accent selection and long-press app actions; Previous/Next/Choose buttons also available.
 - Glass is a stylized translucent effect, not live background blur or optical refraction.
 
 ## Included
